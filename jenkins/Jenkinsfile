@@ -33,7 +33,7 @@ pipeline {
                             ])
                         }
                     }
-                }
+                } // Kết thúc Unit Tests - Backend
 
                 stage('Unit Tests - Frontend') {
                     agent {
@@ -63,11 +63,11 @@ pipeline {
                             ])
                         }
                     }
-                }
-            }
-        }
+                } // Kết thúc Unit Tests - Frontend
+            } // Kết thúc parallel
+        } // Kết thúc Execute Unit Tests
 
-        stage ('Lanch Application'){
+        stage('Lanch Application') {
             agent {
                 docker {
                     image 'docker:27.5.1'
@@ -75,28 +75,26 @@ pipeline {
                     args '-v /var/run/docker.sock:/var/run/docker.sock -u 0'
                 }
             }
-            steps{
+            steps {
                 sh 'docker compose up --build -d'
             }
-        }
+        } // Kết thúc Lanch Application
 
-        stage ("API Tests"){
-            agent{
-                docker{
+        stage("API Tests") {
+            agent {
+                docker {
                     image 'mcr.microsoft.com/playwright:v1.50.0-jammy'
                     reuseNode true
                     args '-u 0 --network=host'
                 }
             }
-            steps{
-                dir('tests-api'){
+            steps {
+                dir('tests-api') {
                     sh 'npx wait-port http://localhost:8080/api/health -t 30000'
                     sh 'npm ci'
                     sh 'npx playwright test'
                 }
-
             }
-
             post {
                 always {
                     junit 'tests-api/test-results/results.xml'
@@ -106,13 +104,13 @@ pipeline {
                         reportName: 'Playwright API Test Report'
                     ])
                 }
-        }
-    } 
+            } 
+        } // Kết thúc API Tests (Đã bổ sung dấu ngoặc bị thiếu tại đây)
+    } // Kết thúc stages
 
     post {
         always {
             cleanWs()
         }
     }
-}
-}
+} // Kết thúc pipeline

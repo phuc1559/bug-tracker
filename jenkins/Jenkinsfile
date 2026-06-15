@@ -132,6 +132,22 @@ pipeline {
             }
         } // Kết thúc E2E Tests
 
+        stage ('Performance Tests') {
+            agent {
+                docker {
+                    image 'grafana/k6:latest'
+                    reuseNode true
+                    args '--network=host -u root --entrypoint=""' '
+                }
+            }
+            steps {
+                dir('tests-perf') {
+                    sh 'k6 run script.js'
+                }
+            }
+
+        } // Kết thúc Performance Tests
+
     } // Kết thúc stages
 
     post {

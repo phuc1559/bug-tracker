@@ -159,3 +159,5 @@ jobs:
         if: always()
         with:
           name: API Tests Reports
+          path: tests-api/test-results/*.xml
+          reporter: jest-junit

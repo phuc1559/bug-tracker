@@ -1,0 +1,33 @@
+# fly.toml app configuration file generated for bugtracker-backend-phuc1559 on 2026-07-11T11:40:01+07:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'bugtracker-backend-staging-phuc1559'
+primary_region = 'sin'
+
+[build.args]
+  NEXT_PUBLIC_API_URL = "https://bugtracker-backend-phuc1559.fly.dev"
+
+[mount]
+  source="bugtracker_data"
+  destination="/data"
+
+[env]
+  DB_PATH = "/data/bug.db"
+
+
+
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true  
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '256mb'
+  cpus = 1
+  memory_mb = 256

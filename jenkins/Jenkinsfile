@@ -67,7 +67,7 @@ pipeline {
             } // Kết thúc parallel
         } // Kết thúc Execute Unit Tests
 
-        stage('Lanch Application') {
+        stage('Launch Application') {
             agent {
                 docker {
                     image 'docker:27.5.1'
@@ -78,7 +78,7 @@ pipeline {
             steps {
                 sh 'docker compose up --build -d'
             }
-        } // Kết thúc Lanch Application
+        } // Kết thúc Launch Application
 
         stage("API Tests") {
             agent {
@@ -90,7 +90,7 @@ pipeline {
             }
             steps {
                 dir('tests-api') {
-                    sh 'npx wait-port http://localhost:8080/api/health -t 30000'
+                    sh 'npx wait-port localhost:8080 -t 30000'
                     sh 'npm ci'
                     sh 'npx playwright test'
                 }
@@ -106,7 +106,8 @@ pipeline {
                 }
             } 
         }
-                stage ("E2E Tests") {
+
+        stage ("E2E Tests") {
             agent {
                 docker {
                     image 'mcr.microsoft.com/playwright:v1.50.0-jammy'
@@ -145,7 +146,6 @@ pipeline {
                     sh 'k6 run script.js'
                 }
             }
-
             post {
                 always {
                     publishHTML (target: [
@@ -155,91 +155,72 @@ pipeline {
                     ])
                 }
             }
-
-        }
-        
-        // Kết thúc Performance Tests
+        } // Kết thúc Performance Tests
 
         stage('Deploy Staging') {
-    when {
-        expression {
-            return env.GIT_BRANCH == 'origin/main'
-        }
-    }
-    environment {
-        FLY_API_TOKEN = credentials('fly-api-token')
-        FLYCTL_INSTALL = "${env.WORKSPACE.replaceAll(' ', '')}/.fly"
-        PATH = "$FLYCTL_INSTALL/bin:$PATH"
-        HOME = "${WORKSPACE}"
-    }
-    stages {
-        stage('Install Flyctl') {
-            steps {
-                sh 'mkdir -p $FLYCTL_INSTALL'
-                sh 'curl -L https://fly.io/install.sh | sh'
-                sh 'flyctl version'
+            when {
+                expression { return env.GIT_BRANCH == 'origin/main' }
             }
-        }
-        stage('Deploy Backend') {
-            steps {
-                dir('bugtracker-backend') {
-                    sh 'flyctl deploy -c fly.staging.toml --remote-only'
+            environment {
+                FLY_API_TOKEN = credentials('fly-api-token')
+                FLYCTL_INSTALL = "${env.WORKSPACE.replaceAll(' ', '')}/.fly"
+                PATH = "$FLYCTL_INSTALL/bin:$PATH"
+                HOME = "${WORKSPACE}"
+            }
+            stages {
+                stage('Install Flyctl') {
+                    steps {
+                        sh 'mkdir -p $FLYCTL_INSTALL'
+                        sh 'curl -L https://fly.io/install.sh | sh'
+                        sh 'flyctl version'
+                    }
+                }
+                stage('Deploy Backend') {
+                    steps {
+                        dir('bugtracker-backend') {
+                            sh 'flyctl deploy -c fly.staging.toml --remote-only'
+                        }
+                    }
+                }
+                stage('Deploy Frontend') {
+                    steps {
+                        dir('bugtracker-frontend') {
+                            sh 'flyctl deploy -c fly.staging.toml --remote-only'
+                        }
+                    }
+                }
+                stage('Post Deployment Tests') {
+                    agent {
+                        docker {
+                            image 'mcr.microsoft.com/playwright:v1.50.0-jammy'
+                            reuseNode true
+                            args '-u 0'
+                        }
+                    }
+                    environment {
+                        PLAYWRIGHT_TEST_BASE_URL = 'https://bugtracker-frontend-staging-phuc1559.fly.dev'
+                    }
+                    steps {
+                        dir('tests-e2e') {
+                            sh 'npm ci'
+                            // Sửa lại cú pháp wait-port (host:port)
+                            sh 'npx wait-port bugtracker-frontend-staging-phuc1559.fly.dev:443 -t 60000'
+                            sh 'npx playwright test'
+                        }
+                    }
+                    post {
+                        always {
+                            junit 'tests-e2e/test-results/results.xml'
+                            publishHTML (target: [
+                                reportDir: 'tests-e2e/playwright-report',
+                                reportFiles: 'index.html',
+                                reportName: 'Playwright Post Deployment Test Report'
+                            ])
+                        }
+                    }
                 }
             }
-        }
-        stage('Deploy Frontend') {
-            steps {
-                dir('bugtracker-frontend') {
-                    sh 'flyctl deploy -c fly.staging.toml --remote-only'
-                }
-            }
-        }
-
-        stage('Post Deployment Tests') {
-    when {
-        expression {
-            return env.GIT_BRANCH == 'origin/main'
-        }
-    }
-    agent {
-        docker {
-            image 'mcr.microsoft.com/playwright:v1.50.0-jammy'
-            reuseNode true
-            args '-u 0'
-        }
-    }
-    environment {
-        PLAYWRIGHT_TEST_BASE_URL = 'https://bugtracker-frontend-staging-phuc1559.fly.dev'
-    }
-
-    steps {
-    dir('tests-e2e') {
-        sh 'npm ci'
-        sh 'npx wait-port https://bugtracker-frontend-staging-phuc1559.fly.dev -t 60000'
-        sh 'npx playwright test'
-    }
-}
-    steps {
-        dir('tests-e2e') {
-            sh 'npm ci'
-            sh 'npx playwright test'
-        }
-    }
-    post {
-        always {
-            junit 'tests-e2e/test-results/results.xml'
-            publishHTML (target: [
-                reportDir: 'tests-e2e/playwright-report',
-                reportFiles: 'index.html',
-                reportName: 'Playwright Post Deployment Test Report'
-            ])
-        }
-    }
-}
-    }
-}
-
-
+        } // Kết thúc Deploy Staging
     } // Kết thúc stages
 
     post {
@@ -247,5 +228,4 @@ pipeline {
             cleanWs()
         }
     }
-
 }

@@ -203,8 +203,20 @@ pipeline {
                     steps {
                         dir('tests-e2e') {
                             sh 'npm ci'
-                            // Sửa lại cú pháp wait-port (host:port)
-                            sh 'npx wait-port bugtracker-frontend-staging-phuc1559.fly.dev:443 -t 60000'
+                            // Kiểm tra ứng dụng thực sự phản hồi HTTP 200,
+                            // thay vì chỉ kiểm tra cổng TCP mở (wait-port không đủ vì
+                            // fly.io edge proxy luôn mở cổng 443 kể cả khi machine đang "ngủ")
+                            sh '''
+                                for i in $(seq 1 20); do
+                                    STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://bugtracker-frontend-staging-phuc1559.fly.dev/)
+                                    if [ "$STATUS" = "200" ]; then
+                                        echo "App is ready (HTTP 200)"
+                                        break
+                                    fi
+                                    echo "Waiting for app... (got HTTP $STATUS)"
+                                    sleep 3
+                                done
+                            '''
                             sh 'npx playwright test'
                         }
                     }

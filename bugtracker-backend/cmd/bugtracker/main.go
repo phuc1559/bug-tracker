@@ -74,6 +74,8 @@ func createServer() *http.Server {
 			"https://bugtracker-jameswillett.fly.dev",
 			"https://bugtracker-backend-phuc1559.fly.dev",
 			"https://bugtracker-backend-staging-phuc1559.fly.dev",
+			"https://bugtracker-frontend-phuc1559.fly.dev",
+			"https://bugtracker-frontend-staging-phuc1559.fly.dev",
 		},
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"*"},
